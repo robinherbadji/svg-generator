@@ -1,0 +1,93 @@
+package herbadji.svg.api;
+
+import herbadji.svg.api.elements.*;
+import herbadji.svg.api.expressions.*;
+
+parser code {:
+    public void report_error(String message, Object info) {
+        StringBuffer m = new StringBuffer("Error");
+		m.append (info.toString());
+        m.append(" : "+message);
+        System.err.println(m.toString());
+    }
+   
+    public void report_fatal_error(String message, Object info) {
+        report_error(message, info);
+        System.exit(1);
+    }
+    
+	private SVGContext context;
+	
+    public void setContext (SVGContext context) {
+    	this.context = context;
+    }
+
+    public SVGContext getContext () {
+		return context;
+    }
+    
+    public SVGFactory getFactory () {
+		return getContext().getFactory();
+	}
+
+:}
+
+terminal String	ID, TEXT;
+terminal RECTANGLE, CIRCLE;
+terminal ANIMATE;
+//terminal GOTO, MOVE, TURN;
+//terminal UP, DOWN;
+terminal ADD, SUB, MULT, DIV;
+terminal TERM, SEP, SET;
+terminal OPEN_PARENTHESIS, CLOSE_PARENTHESIS;
+terminal UNARY_PLUS, UNARY_MINUS;
+terminal Integer INT;
+
+nonterminal			Commandes, Definitions, Definition;
+
+nonterminal 		Node    Instruction;
+
+nonterminal 		ExpressionNode    expr;
+
+precedence left ADD, SUB; 
+precedence left MULT, DIV; 
+precedence right UNARY_PLUS, UNARY_MINUS;
+
+Commandes	::= Definitions
+			;
+
+Definitions ::= 
+			| 	Definitions Definition
+			;
+
+Definition	::= Instruction:inst TERM	{: ; :}
+			;
+			
+expr	::=	OPEN_PARENTHESIS expr:e CLOSE_PARENTHESIS	{: RESULT = e; :}
+			| expr:e1 ADD expr:e2		{: RESULT = getFactory().createNodeAdd (e1, e2); :}
+			| expr:e1 SUB expr:e2		{: RESULT = getFactory().createNodeSub (e1, e2); :}
+			| expr:e1 MULT expr:e2		{: RESULT = getFactory().createNodeMult (e1, e2); :}
+			| expr:e1 DIV expr:e2		{: RESULT = getFactory().createNodeDiv (e1, e2); :}
+			| ADD expr:e				{: RESULT = getFactory().createNodePlus (e); :} %prec UNARY_PLUS
+			| SUB expr:e				{: RESULT = getFactory().createNodeMinus (e); :} %prec UNARY_MINUS
+			| INT:n						{: RESULT = getFactory().createNodeConstantInteger (n); :}
+			| ID:id						{: RESULT = getFactory().createNodeGetVariable (id); :}
+			
+			/*
+			| TEXT:text					{: RESULT = getFactory().createNodeConstantString (text); :}*/
+			;
+
+
+Instruction ::=										     						{: RESULT = null; :}
+			| RECTANGLE ID:id expr:x expr:y expr:w expr:h  						{: RESULT = getFactory().createRectangle(id, x, y, w, h); :}
+			| CIRCLE ID:id expr:x expr:y expr:r			  						{: RESULT = getFactory().createCircle(id, x, y, r); :}
+			| ID:id SET expr:v													{: /*RESULT = */getFactory().createNodeSetVariable (id, v); :}
+			| TEXT:text															{: RESULT = getFactory().createNodeConstantString (text); :}
+			
+			//| ANIMATE ID:id 													{: RESULT = new AnimateRectangleNode(getContext().getRootNode(),id); :}
+			| ANIMATE ID:id expr:fromX expr:fromY expr:toX expr:toY	expr:time	{: RESULT = getFactory().animateNodes(id, fromX, fromY, toX, toY, time); :}
+			
+			//| GROUPADD ID:id list:									{: RESULT = new AnimateRectangleNode(getContext().getRootNode(),id); :}
+			
+			//| ANIMATE ID:id exp:fromX exp:fromY exp:toX exp:toY exp:time    {: RESULT = new OrbitalAnimation(getContext().getRootNode(),reference,fromX.getResult(),fromY.getResult(),toX.getResult(),toY.getResult(),time.getResult()); :}
+			;
